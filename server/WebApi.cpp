@@ -34,6 +34,7 @@
 #include "Thread/WorkThreadPool.h"
 #include "Rtp/RtpSelector.h"
 #include "FFmpegSource.h"
+#include "Pusher/MediaPusher.h"
 #if defined(ENABLE_RTPPROXY)
 #include "Rtp/RtpServer.h"
 #endif
@@ -250,6 +251,9 @@ bool checkArgs(Args &&args,First &&first,KeyTypes && ...keys){
 //拉流代理器列表
 static unordered_map<string ,PlayerProxy::Ptr> s_proxyMap;
 static recursive_mutex s_proxyMapMtx;
+
+static unordered_map<string, MediaPusher::Ptr> s_pusherMap;
+static recursive_mutex s_pusherMapMtx;
 
 //FFmpeg拉流代理器列表
 static unordered_map<string ,FFmpegSource::Ptr> s_ffmpegMap;
@@ -857,6 +861,32 @@ void installWebApi() {
 
 
 #endif//ENABLE_RTPPROXY
+
+	api_regist1("/index/api/pushStram", [](API_ARGS1) {
+		//CHECK_SECRET();
+		CHECK_ARGS("schema", "vhost", "app", "stream", "pushurl");
+
+		auto poller = EventPollerPool::Instance().getPoller();
+
+		lock_guard<recursive_mutex> lck(s_pusherMapMtx);
+		MediaPusher::Ptr pusher = std::make_shared<MediaPusher>(allArgs["schema"], allArgs["vhost"], allArgs["app"], allArgs["stream"], poller);
+		//可以指定rtsp推流方式，支持tcp和udp方式，默认tcp
+//      (*pusher)[Client::kRtpType] = Rtsp::RTP_UDP;
+		//设置推流中断处理逻辑
+		pusher->setOnShutdown([poller,  url](const SockException &ex) {
+			ErrorL << "Server connection is closed:" << ex.getErrCode() << " " << ex.what();
+		});
+		//设置发布结果处理逻辑
+		pusher->setOnPublished([poller, url](const SockException &ex) {
+			if (ex) {
+				ErrorL << "Publish fail:" << ex.getErrCode() << " " << ex.what();
+			}
+			else {
+				InfoL << "Publish success,Please play with player:" << url;
+			}
+		});
+		s_pusherMap.emplace(allArgs["stream"], pusher);
+	});
 
     // 开始录制hls或MP4
     api_regist1("/index/api/startRecord",[](API_ARGS1){
