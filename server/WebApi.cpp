@@ -925,8 +925,8 @@ void installWebApi() {
 		}
 	});
 
-	// 接口url: /index/api/unpublishStream?stream=234534
-	api_regist1("/index/api/unpushStream", [](API_ARGS1) {
+	// 接口url: /index/api/unpublishStream?publishurl=234534
+	api_regist1("/index/api/unpublishStream", [](API_ARGS1) {
 		CHECK_ARGS("publishurl");
 		lock_guard<recursive_mutex> lck(s_pusherMapMtx);
 		auto it = s_pusherMap.find(allArgs["publishurl"]);
