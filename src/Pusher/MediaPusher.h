@@ -37,8 +37,13 @@ public:
     void publish(const string &url) override;
     EventPoller::Ptr getPoller();
     void setOnCreateSocket(Socket::onCreateSocket cb);
+	bool IsMediaSourceExist() { if (!_src.expired()) return true; else return false; };
+	std::string GetPushUrl() { return _pushurl; };
+	std::string GetStream() { return _stream; };
 
 private:
+	std::string _stream;
+	std::string _pushurl;
     std::weak_ptr<MediaSource> _src;
     EventPoller::Ptr _poller;
     Socket::onCreateSocket _on_create_socket;

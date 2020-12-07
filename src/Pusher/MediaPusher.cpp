@@ -28,6 +28,7 @@ MediaPusher::MediaPusher(const string &schema,
                          const string &stream,
                          const EventPoller::Ptr &poller) :
         MediaPusher(MediaSource::find(schema, vhost, app, stream), poller){
+	_stream = stream;
 }
 
 MediaPusher::~MediaPusher() {
@@ -41,6 +42,7 @@ static void setOnCreateSocket_l(const std::shared_ptr<PusherBase> &delegate, con
 }
 
 void MediaPusher::publish(const string &url) {
+	_pushurl = url;
     _delegate = PusherBase::createPusher(_poller, _src.lock(), url);
     assert(_delegate);
     setOnCreateSocket_l(_delegate, _on_create_socket);

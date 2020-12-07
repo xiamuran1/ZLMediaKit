@@ -862,30 +862,92 @@ void installWebApi() {
 
 #endif//ENABLE_RTPPROXY
 
-	api_regist1("/index/api/pushStram", [](API_ARGS1) {
+	// 接口url：/index/api/publishStream?schema=rtmp&vhost=__defaultVhost__&app=rtp&stream=test1&publishurl=rtmp://127.0.0.1/123/456
+	api_regist1("/index/api/publishStream", [](API_ARGS1) {
 		//CHECK_SECRET();
-		CHECK_ARGS("schema", "vhost", "app", "stream", "pushurl");
+		CHECK_ARGS("schema", "vhost", "app", "stream", "publishurl");
 
 		auto poller = EventPollerPool::Instance().getPoller();
+		auto url = allArgs["publishurl"];
+		auto stream = allArgs["stream"];
 
 		lock_guard<recursive_mutex> lck(s_pusherMapMtx);
-		MediaPusher::Ptr pusher = std::make_shared<MediaPusher>(allArgs["schema"], allArgs["vhost"], allArgs["app"], allArgs["stream"], poller);
+		// 判断该stream是否已经publish过
+		if (s_pusherMap.find(url) != s_pusherMap.end()) {
+			std::string errMsg = "Publish url " + url + " already exist," + stream + " publish failed.";
+			val["code"] = API::OtherFailed;
+			val["msg"] = errMsg;
+			ErrorL << errMsg;
+			return;
+		}
+
+		MediaPusher::Ptr pusher = std::make_shared<MediaPusher>(allArgs["schema"], allArgs["vhost"], allArgs["app"], stream, poller);
+		// 这里给MediaPusher新添加了接口IsMediaSourceExist，这里直接获取查找MediaSource源结果，没找到直接给出结果
+		if (!pusher->IsMediaSourceExist()) {
+			std::string errMsg = "Stream " + stream + " not exist,push" + url + " failed.";
+			val["code"] = API::OtherFailed;
+			val["msg"] = errMsg;
+			ErrorL << errMsg;
+			return;
+		}
+
 		//可以指定rtsp推流方式，支持tcp和udp方式，默认tcp
 //      (*pusher)[Client::kRtpType] = Rtsp::RTP_UDP;
+
 		//设置推流中断处理逻辑
-		pusher->setOnShutdown([poller,  url](const SockException &ex) {
-			ErrorL << "Server connection is closed:" << ex.getErrCode() << " " << ex.what();
+		pusher->setOnShutdown([poller, stream,  url](const SockException &ex) {
+			ErrorL << "Server connection is closed:" << ex.getErrCode() << " " << ex.what()<<",publish "<< url <<" stop.";
+			lock_guard<recursive_mutex> lck(s_pusherMapMtx);
+			s_pusherMap.erase(url);
 		});
-		//设置发布结果处理逻辑
-		pusher->setOnPublished([poller, url](const SockException &ex) {
+
+		//设置发布结果处理逻辑，发生异常时会调用，正常时不调用
+		//异常有两种：publish时发生(未查找到MediaSource时等)，publish后发生(一般是publish的url无效等引起)
+		bool published = true;
+		pusher->setOnPublished([poller, &published, url](const SockException &ex) {
 			if (ex) {
-				ErrorL << "Publish fail:" << ex.getErrCode() << " " << ex.what();
-			}
-			else {
-				InfoL << "Publish success,Please play with player:" << url;
+				published = false;
+				ErrorL << "Publish "<<url<<" fail:" << ex.getErrCode() << " " << ex.what();
+				lock_guard<recursive_mutex> lck(s_pusherMapMtx);
+				s_pusherMap.erase(url);
 			}
 		});
-		s_pusherMap.emplace(allArgs["stream"], pusher);
+
+		pusher->publish(url);
+		if (published) {
+			s_pusherMap.emplace(url, pusher);
+			val["code"] = API::Success;
+			val["msg"] = "Publish stream " + stream + " to " + url + " success.";
+		}
+		else {
+			val["code"] = API::OtherFailed;
+			val["msg"] = "Publish stream " + stream + " to " + url + " occur error.";
+		}
+	});
+
+	// 接口url: /index/api/unpublishStream?stream=234534
+	api_regist1("/index/api/unpushStream", [](API_ARGS1) {
+		CHECK_ARGS("publishurl");
+		lock_guard<recursive_mutex> lck(s_pusherMapMtx);
+		auto it = s_pusherMap.find(allArgs["publishurl"]);
+		if (it == s_pusherMap.end()) {
+			val["hit"] = 0;
+			return;
+		}
+		auto server = it->second;
+		s_pusherMap.erase(it);
+		val["hit"] = 1;
+	});
+
+	api_regist1("/index/api/getPublishStream", [](API_ARGS1) {
+		val["code"] = API::Success;
+		lock_guard<recursive_mutex> lck(s_pusherMapMtx);
+		for (auto &pr : s_pusherMap) {
+			Value obj;
+			obj["publishurl"] = pr.first;
+			obj["sourcestream"] = pr.second->GetStream();
+			val["data"].append(obj);
+		}
 	});
 
     // 开始录制hls或MP4
