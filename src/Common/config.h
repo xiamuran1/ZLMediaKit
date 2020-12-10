@@ -253,6 +253,10 @@ extern const string kMaxRtpCount;
 extern const string kClearCount;
 //最大RTP时间为13个小时，每13小时回环一次
 extern const string kCycleMS;
+//rtp最小可用端口
+extern const string kMinRtpPort;
+//rtp最大可用端口
+extern const string kMaxRtpPort;
 } //namespace Rtsp
 
 ////////////组播配置///////////

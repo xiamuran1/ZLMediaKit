@@ -272,6 +272,7 @@ private:
 };
 
 void makeSockPair(std::pair<Socket::Ptr, Socket::Ptr> &pair, const string &local_ip);
+void makeSockPairSectPort(std::pair<Socket::Ptr, Socket::Ptr> &pair, const string &local_ip, int minport, int maxport);
 string printSSRC(uint32_t ui32Ssrc);
 
 } //namespace mediakit

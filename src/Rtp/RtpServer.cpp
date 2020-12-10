@@ -29,7 +29,12 @@ void RtpServer::start(uint16_t local_port, const string &stream_id,  bool enable
         //随机端口，rtp端口采用偶数
         Socket::Ptr rtcp_server = Socket::createSocket(nullptr, true);
         auto pair = std::make_pair(udp_server, rtcp_server);
-        makeSockPair(pair, local_ip);
+		GET_CONFIG(uint16_t, minport, Rtp::kMinRtpPort);
+		GET_CONFIG(uint16_t, maxport, Rtp::kMaxRtpPort);
+		if (0 == minport || 0 == maxport)
+			makeSockPair(pair, local_ip);
+		else
+			makeSockPairSectPort(pair, local_ip, minport, maxport);
         //取偶数端口
         udp_server = pair.first;
     } else if (!udp_server->bindUdpSock(local_port, local_ip)) {

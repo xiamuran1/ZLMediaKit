@@ -404,6 +404,40 @@ static void makeSockPair_l(std::pair<Socket::Ptr, Socket::Ptr> &pair, const stri
      }
 }
 
+ void makeSockPairSectPort(std::pair<Socket::Ptr, Socket::Ptr> &pair, const string &local_ip, int minport, int maxport) {
+	 auto &pSockRtp = pair.first;
+	 auto &pSockRtcp = pair.second;
+	 int count = (maxport - minport) / 2;
+	 while (count-- > 0) {
+		 srand(time(NULL));
+		 unsigned short curSvrPort = minport + rand() % (maxport - minport);
+		 if (!pSockRtp->bindUdpSock(curSvrPort, local_ip.data())) {
+			 //分配端口失败
+			 continue;
+		 }
+
+		 //是否是偶数
+		 bool even_numbers = pSockRtp->get_local_port() % 2 == 0;
+		 if (!pSockRtcp->bindUdpSock(pSockRtp->get_local_port() + (even_numbers ? 1 : -1), local_ip.data())) {
+			 //分配端口失败
+			 continue;
+		 }
+
+		 if (!even_numbers) {
+			 //如果rtp端口不是偶数，那么与rtcp端口互换，目的是兼容一些要求严格的播放器或服务器
+			 Socket::Ptr tmp = pSockRtp;
+			 pSockRtp = pSockRtcp;
+			 pSockRtcp = tmp;
+			 break;
+		 }
+	 }
+
+	 if (--count <= 0)
+	 {
+		 ErrorL<<"makeSockPairSectPort error,not found a available port("<<minport<<"-"<<maxport<<").";
+	 }
+ }
+
 string printSSRC(uint32_t ui32Ssrc) {
     char tmp[9] = { 0 };
     ui32Ssrc = htonl(ui32Ssrc);

@@ -196,6 +196,10 @@ const string kMaxRtpCount = RTP_FIELD"maxRtpCount";
 const string kClearCount = RTP_FIELD"clearCount";
 //最大RTP时间为13个小时，每13小时回环一次
 const string kCycleMS = RTP_FIELD"cycleMS";
+//rtp最小可用端口
+const string kMinRtpPort = RTP_FIELD"minRtpPort";
+//rtp最大可用端口
+const string kMaxRtpPort = RTP_FIELD"maxRtpPort";
 
 onceToken token([](){
     mINI::Instance()[kVideoMtuSize] = 1400;
@@ -203,6 +207,8 @@ onceToken token([](){
     mINI::Instance()[kMaxRtpCount] = 50;
     mINI::Instance()[kClearCount] = 10;
     mINI::Instance()[kCycleMS] = 13*60*60*1000;
+	mINI::Instance()[kMinRtpPort] = 17200;
+	mINI::Instance()[kMaxRtpPort] = 17500;
 },nullptr);
 } //namespace Rtsp
 

@@ -896,7 +896,7 @@ void installWebApi() {
 
 		//设置推流中断处理逻辑
 		pusher->setOnShutdown([poller, stream,  url](const SockException &ex) {
-			ErrorL << "Server connection is closed:" << ex.getErrCode() << " " << ex.what()<<",publish "<< url <<" stop.";
+			ErrorL << "Server connection is closed:" << ex.getErrCode() << " " << ex.what()<<",Stream "<<stream<<" to publish "<< url <<" stop.";
 			lock_guard<recursive_mutex> lck(s_pusherMapMtx);
 			s_pusherMap.erase(url);
 		});
